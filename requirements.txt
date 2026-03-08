@@ -1,5 +1,5 @@
 streamlit
 Pillow
 numpy
-rembg
+rembg[cpu]
 streamlit-image-coordinates
