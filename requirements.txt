@@ -1,0 +1,5 @@
+streamlit
+Pillow
+rembg
+streamlit-image-coordinates
+numpy
