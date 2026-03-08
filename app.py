@@ -52,8 +52,10 @@ def composite_images(mockup, design, x, y, scale, rotation, shadow_opacity):
 
 @st.cache_resource
 def load_rembg_session():
-    # Note: This will pause the app on the very first run to download ~176MB
-    return new_session()
+    # Pre-loading the session with the lightweight model
+    from rembg import new_session
+    # "u2netp" is the highly compressed version of the model
+    return new_session("u2netp")
 
 @st.cache_data
 def get_processed_design_bytes(design_bytes):
