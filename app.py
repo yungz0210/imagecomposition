@@ -1,29 +1,36 @@
 import os
-# Force ONNX / numpy to use a single thread to prevent deadlocks in Streamlit
+# Force AI and math libraries to use a single thread to prevent CPU deadlocks
 os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["MKL_NUM_THREADS"] = "1"
 os.environ["NUMEXPR_NUM_THREADS"] = "1"
+os.environ["NUMBA_NUM_THREADS"] = "1"
 
 import streamlit as st
 from PIL import Image, ImageFilter
 import numpy as np
 import io
-from rembg import remove, new_session
 from streamlit_image_coordinates import streamlit_image_coordinates
 
 st.set_page_config(page_title="The Kawaii Factory 'Smart' Streamlit App", layout="wide")
 
 def composite_images(mockup, design, x, y, scale, rotation, shadow_opacity):
+    """
+    Composites the design onto the mockup at (x, y) with scale, rotation and shadow.
+    Ensures design is centered on the click point.
+    """
     mockup = mockup.convert("RGBA")
     design = design.convert("RGBA")
 
+    # Scale
     w, h = design.size
     new_w = int(w * scale)
     new_h = int(h * scale)
     design = design.resize((new_w, new_h), Image.Resampling.LANCZOS)
 
+    # Rotation
     design = design.rotate(rotation, expand=True, resample=Image.BICUBIC)
     
+    # Shadow logic
     if shadow_opacity > 0:
         shadow = Image.new("RGBA", design.size, (0, 0, 0, 0))
         design_alpha = design.getchannel("A")
@@ -34,10 +41,12 @@ def composite_images(mockup, design, x, y, scale, rotation, shadow_opacity):
     else:
         shadow = None
 
+    # Calculate top-left for centering
     final_w, final_h = design.size
     top_left_x = x - final_w // 2
     top_left_y = y - final_h // 2
 
+    # Paste shadow and design
     result = Image.new("RGBA", mockup.size)
     result.paste(mockup, (0, 0))
     
@@ -50,24 +59,38 @@ def composite_images(mockup, design, x, y, scale, rotation, shadow_opacity):
 
 @st.cache_resource
 def load_rembg_session():
+    # LAZY LOAD: Only import when this function is called
+    from rembg import new_session
+    # "u2netp" is the highly compressed lightweight version of the model
     return new_session("u2netp")
 
 @st.cache_data
 def get_processed_design_bytes(design_bytes):
+    """
+    Takes image bytes, processes them, and returns PNG bytes.
+    This prevents Streamlit's cache from choking on PIL objects.
+    """
+    # LAZY LOAD: Only import when this function is called
+    from rembg import remove
+    
     design_image = Image.open(io.BytesIO(design_bytes)).convert("RGBA")
     width, height = design_image.size
 
+    # Smart Watermark Logic
     if width >= 50 and height >= 50:
         bottom_right_area = design_image.crop((width - 50, height - 50, width, height))
         pixels = np.array(bottom_right_area)
         alpha_channel = pixels[:, :, 3]
         
+        # Check if the area has partial transparency (mix of text/logo and background)
         if 0 < np.mean(alpha_channel) < 255:
             design_image = design_image.crop((0, 0, width, height - 50))
 
+    # Background Removal
     session = load_rembg_session()
     processed_design = remove(design_image, session=session)
     
+    # Save back to bytes for safe Streamlit caching
     buf = io.BytesIO()
     processed_design.save(buf, format="PNG")
     return buf.getvalue()
@@ -84,12 +107,12 @@ with col2:
     mockup_file = st.file_uploader("2. Upload Your Mockup Photo", type=["png", "jpg", "jpeg"])
 
 if design_file and mockup_file:
-    # --- DIAGNOSTIC BREADCRUMBS ADDED HERE ---
     status_text = st.empty()
     status_text.info("Status: Files uploaded successfully. Reading image data...")
     
     design_bytes = design_file.getvalue()
     mockup_bytes = mockup_file.getvalue()
+    
     mockup_img = Image.open(io.BytesIO(mockup_bytes))
     
     status_text.info("Status: Initializing AI Model (This is where downloads or deadlocks usually happen)...")
@@ -127,6 +150,7 @@ if design_file and mockup_file:
         st.subheader("4. Final Mockup")
         st.image(final_mockup, use_container_width=True)
         
+        # Download button
         buf = io.BytesIO()
         final_mockup.save(buf, format="JPEG")
         byte_im = buf.getvalue()
