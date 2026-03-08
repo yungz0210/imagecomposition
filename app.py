@@ -1,5 +1,5 @@
 import streamlit as st
-from PIL import Image, ImageOps
+from PIL import Image
 import numpy as np
 import io
 from rembg import remove
@@ -59,6 +59,12 @@ def composite_images(mockup, design, x, y, scale, rotation, shadow_opacity):
 
     return result.convert("RGB")
 
+@st.cache_resource
+def load_rembg_session():
+    # Pre-loading the session can sometimes help with performance/loading
+    from rembg import new_session
+    return new_session()
+
 @st.cache_data
 def get_processed_design(design_bytes):
     img = Image.open(io.BytesIO(design_bytes))
@@ -93,7 +99,8 @@ def process_design(design_image):
             st.info("Smart Watermark Detection: Bottom-right watermark area cropped.")
 
     # Background Removal
-    processed_design = remove(design_image)
+    session = load_rembg_session()
+    processed_design = remove(design_image, session=session)
     return processed_design
 
 st.title("🎨 The Kawaii Factory 'Smart' Streamlit App")
