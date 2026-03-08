@@ -52,9 +52,7 @@ def composite_images(mockup, design, x, y, scale, rotation, shadow_opacity):
 
 @st.cache_resource
 def load_rembg_session():
-    # Pre-loading the session with the lightweight model
-    from rembg import new_session
-    # "u2netp" is the highly compressed version of the model
+    # Pre-loading the session with the lightweight model (u2netp) for free cloud deployment
     return new_session("u2netp")
 
 @st.cache_data
@@ -73,7 +71,6 @@ def get_processed_design_bytes(design_bytes):
         alpha_channel = pixels[:, :, 3]
         
         # Check if the area has partial transparency (mix of text/logo and background)
-        # instead of > 0, which triggers on solid opaque images too.
         if 0 < np.mean(alpha_channel) < 255:
             design_image = design_image.crop((0, 0, width, height - 50))
 
@@ -104,7 +101,7 @@ if design_file and mockup_file:
     
     mockup_img = Image.open(io.BytesIO(mockup_bytes))
     
-    with st.spinner("Processing design... (This may take a moment if downloading the AI model)"):
+    with st.spinner("Processing design... (This may take a few seconds on the first run)"):
         # Process and retrieve bytes, then convert to Image
         processed_bytes = get_processed_design_bytes(design_bytes)
         processed_design = Image.open(io.BytesIO(processed_bytes))
