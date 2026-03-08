@@ -1,5 +1,5 @@
 streamlit
 Pillow
+numpy
 rembg
 streamlit-image-coordinates
-numpy
